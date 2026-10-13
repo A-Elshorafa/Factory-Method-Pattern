@@ -1,4 +1,4 @@
-# Factory Method Pattern – Order Notifications (.NET 10)
+# Factory Method Pattern – Order Notifications (.NET 10 + React)
 
 ## What is the Factory Method pattern?
 
@@ -71,16 +71,48 @@ NotificationFactoryMethod/
 │   ├── NotificationOptions.cs       settings the creators pass to their channels
 │   └── NotificationOutbox.cs        every dispatch, newest first
 ├── Services/NotificationService.cs  Client
-└── Models/                          one record/class/enum per file
+├── Models/                          one record/class/enum per file
+└── ClientApp/                       React + Tailwind tester (Vite)
+    └── src/
+        ├── App.jsx                  page state and actions
+        ├── api.js                   calls to the backend
+        ├── styles.js                shared Tailwind class strings, channel and role colours
+        └── components/              SendForm, ResultPanel, StepList, MessageView, Outbox, ChannelChip
 ```
 
 ## Run
+
+Backend (terminal 1):
 
 ```bash
 dotnet run
 ```
 
 Swagger UI: http://localhost:8101/swagger
+
+Client (terminal 2):
+
+```bash
+cd ClientApp && npm install && npm run dev
+```
+
+Client: http://localhost:8102
+
+Vite forwards `/api` calls to the backend on port 8101, so no CORS setup is needed. Start the backend first.
+
+## Client app
+
+A one-page tester for the dispatchers:
+
+- **Send a notification**:
+  - **Channel**: one card per concrete creator, with its price. Under the cards, a code line shows which dispatcher is used and which channel its `CreateChannel()` builds, plus that channel's rules.
+  - **Recipient**: the format hint comes from the channel. Switching channels fills in that channel's example recipient, unless you typed your own.
+  - **Message**: title and body, with *Short*, *Long* and *Arabic* samples.
+  - **Send** dispatches through the selected channel. **Preview on all channels** renders the message with every channel without sending it.
+- **Result**:
+  - *Sent / Rejected*: the steps of the dispatch, each labelled with its role (Concrete Creator, Product, Creator), next to what the recipient gets. A rejected send shows the channel's reason and stops after validation.
+  - *Preview*: one card per channel with its part count, note and cost (the cheapest is green), rendered the way that channel displays it: an email with headers, SMS bubbles per segment, a push banner, and a WhatsApp bubble with a bold title.
+- **Outbox**: every dispatch with its channel, recipient, parts and cost (or *Rejected*), plus the totals. **View** opens it in the result panel.
 
 ## Endpoints
 
@@ -94,6 +126,15 @@ Swagger UI: http://localhost:8101/swagger
 | DELETE | `/api/notifications` | Clear the outbox |
 
 Prices are made up for the demo and in EGP: Email 0.05 per message, SMS 0.30 per segment, Push free, WhatsApp 0.45 per message.
+
+## Try it in the client
+
+1. Click **Send via Sms** with the defaults. The first step is `SmsDispatcher` calling `CreateChannel()`; the rest is the shared `NotificationDispatcher` code using the `SmsChannel`. One 111-char SMS, 0.30 EGP.
+2. Pick **Email** (the recipient switches to `mona.adel@example.com`) and send. Same steps, a different product: the message now has From and Subject headers.
+3. Pick **WhatsApp**, change the recipient to `01012345678` and send. `WhatsAppChannel` rejects it and nothing is billed. Pick **Sms** and send the same number: it's accepted. Each channel has its own recipient rule.
+4. Click **Long**, then **Preview on all channels**. SMS needs 2 segments, Push cuts the body to 150 chars, and Email and WhatsApp each send one message.
+5. Click **Arabic**, then **Preview on all channels**. The SMS switches to UCS-2 and splits at 67 chars, so this shorter message still costs two segments.
+6. The **Outbox** lists every send, including the rejected one. Click **View** to see its steps again.
 
 ## Try it in Swagger
 
